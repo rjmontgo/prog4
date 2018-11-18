@@ -1,7 +1,7 @@
 /* GLOBAL CONSTANTS AND VARIABLES */
 
 /* assignment specific globals */
-const INPUT_TRIANGLES_URL = "https://ncsucgclass.github.io/prog2/triangles.json"; // triangles file loc
+const INPUT_TRIANGLES_URL = "https://ncsucgclass.github.io/prog4/triangles.json"; // triangles file loc
 var defaultEye = vec3.fromValues(0.5,0.5,-0.5); // default eye position in world space
 var defaultCenter = vec3.fromValues(0.5,0.5,0.5); // default view direction in world space
 var defaultUp = vec3.fromValues(0,1,0); // default view up vector
@@ -56,10 +56,10 @@ function getJSONFile(url,descr) {
             if ((httpReq.status !== 200) || (httpReq.readyState !== XMLHttpRequest.DONE))
                 throw "Unable to open "+descr+" file!";
             else
-                return JSON.parse(httpReq.response); 
+                return JSON.parse(httpReq.response);
         } // end if good params
-    } // end try    
-    
+    } // end try
+
     catch(e) {
         console.log(e);
         return(String.null);
@@ -68,21 +68,21 @@ function getJSONFile(url,descr) {
 
 // does stuff when keys are pressed
 function handleKeyDown(event) {
-    
+
     const modelEnum = {TRIANGLES: "triangles", ELLIPSOID: "ellipsoid"}; // enumerated model type
     const dirEnum = {NEGATIVE: -1, POSITIVE: 1}; // enumerated rotation direction
-    
+
     function highlightModel(modelType,whichModel) {
         if (handleKeyDown.modelOn != null)
             handleKeyDown.modelOn.on = false;
         handleKeyDown.whichOn = whichModel;
         if (modelType == modelEnum.TRIANGLES)
-            handleKeyDown.modelOn = inputTriangles[whichModel]; 
+            handleKeyDown.modelOn = inputTriangles[whichModel];
         else
-            handleKeyDown.modelOn = inputEllipsoids[whichModel]; 
-        handleKeyDown.modelOn.on = true; 
+            handleKeyDown.modelOn = inputEllipsoids[whichModel];
+        handleKeyDown.modelOn.on = true;
     } // end highlight model
-    
+
     function translateModel(offset) {
         if (handleKeyDown.modelOn != null)
             vec3.add(handleKeyDown.modelOn.translation,handleKeyDown.modelOn.translation,offset);
@@ -97,20 +97,20 @@ function handleKeyDown(event) {
             vec3.transformMat4(handleKeyDown.modelOn.yAxis,handleKeyDown.modelOn.yAxis,newRotation); // rotate model y axis tip
         } // end if there is a highlighted model
     } // end rotate model
-    
+
     // set up needed view params
     var lookAt = vec3.create(), viewRight = vec3.create(), temp = vec3.create(); // lookat, right & temp vectors
     lookAt = vec3.normalize(lookAt,vec3.subtract(temp,Center,Eye)); // get lookat vector
     viewRight = vec3.normalize(viewRight,vec3.cross(temp,lookAt,Up)); // get view right vector
-    
+
     // highlight static variables
     handleKeyDown.whichOn = handleKeyDown.whichOn == undefined ? -1 : handleKeyDown.whichOn; // nothing selected initially
     handleKeyDown.modelOn = handleKeyDown.modelOn == undefined ? null : handleKeyDown.modelOn; // nothing selected initially
 
     switch (event.code) {
-        
+
         // model selection
-        case "Space": 
+        case "Space":
             if (handleKeyDown.modelOn != null)
                 handleKeyDown.modelOn.on = false; // turn off highlighted model
             handleKeyDown.modelOn = null; // no highlighted model
@@ -122,8 +122,8 @@ function handleKeyDown(event) {
         case "ArrowLeft": // select previous triangle set
             highlightModel(modelEnum.TRIANGLES,(handleKeyDown.whichOn > 0) ? handleKeyDown.whichOn-1 : numTriangleSets-1);
             break;
-        
-            
+
+
         // view change
         case "KeyA": // translate view left, rotate left with shift
             Center = vec3.add(Center,Center,vec3.scale(temp,viewRight,viewDelta));
@@ -174,7 +174,7 @@ function handleKeyDown(event) {
             Center = vec3.copy(Center,defaultCenter);
             Up = vec3.copy(Up,defaultUp);
             break;
-            
+
         // model transformation
         case "KeyK": // translate left, rotate left with shift
             if (event.getModifierState("Shift"))
@@ -200,7 +200,7 @@ function handleKeyDown(event) {
             else
                 translateModel(vec3.scale(temp,lookAt,viewDelta));
             break;
-        case "KeyI": // translate up, rotate counterclockwise with shift 
+        case "KeyI": // translate up, rotate counterclockwise with shift
             if (event.getModifierState("Shift"))
                 rotateModel(lookAt,dirEnum.POSITIVE);
             else
@@ -229,7 +229,7 @@ function handleKeyDown(event) {
         			handleKeyDown.modelOn.material.ambient[2] = 0;
         		console.log(handleKeyDown.modelOn.material.ambient);
         	break;
-        case "Numpad2":        		 
+        case "Numpad2":
         		vec3.add(handleKeyDown.modelOn.material.diffuse, handleKeyDown.modelOn.material.diffuse, vec3.fromValues(0.1,0.1,0.1));
         		if(handleKeyDown.modelOn.material.diffuse[0] > 1.0)
         			handleKeyDown.modelOn.material.diffuse[0] = 0;
@@ -239,7 +239,7 @@ function handleKeyDown(event) {
         			handleKeyDown.modelOn.material.diffuse[2] = 0;
         		console.log(handleKeyDown.modelOn.material.diffuse);
         	break;
-         case "Numpad3":        		 
+         case "Numpad3":
         		vec3.add(handleKeyDown.modelOn.material.specular, handleKeyDown.modelOn.material.specular, vec3.fromValues(0.1,0.1,0.1));
         		if(handleKeyDown.modelOn.material.specular[0] > 1.0)
         			handleKeyDown.modelOn.material.specular[0] = 0;
@@ -266,21 +266,21 @@ function handleKeyDown(event) {
 
 // set up the webGL environment
 function setupWebGL() {
-    
+
     // Set up keys
     document.onkeydown = handleKeyDown; // call this when key pressed
 	 // Get the image canvas, render an image in it
      var imageCanvas = document.getElementById("myImageCanvas"); // create a 2d canvas
-      var cw = imageCanvas.width, ch = imageCanvas.height; 
-      imageContext = imageCanvas.getContext("2d"); 
-      var bkgdImage = new Image(); 
+      var cw = imageCanvas.width, ch = imageCanvas.height;
+      imageContext = imageCanvas.getContext("2d");
+      var bkgdImage = new Image();
       bkgdImage.crossOrigin = "Anonymous";
       bkgdImage.src = "https://ncsucgclass.github.io/prog4/sky.jpg";
       bkgdImage.onload = function(){
           var iw = bkgdImage.width, ih = bkgdImage.height;
-          imageContext.drawImage(bkgdImage,0,0,iw,ih,0,0,cw,ch);   
+          imageContext.drawImage(bkgdImage,0,0,iw,ih,0,0,cw,ch);
      } // end onload callback
-    
+
      // create a webgl canvas and set it up
      var webGLCanvas = document.getElementById("myWebGLCanvas"); // create a webgl canvas
      gl = webGLCanvas.getContext("webgl"); // get a webgl object from it
@@ -293,18 +293,18 @@ function setupWebGL() {
          gl.enable(gl.DEPTH_TEST); // use hidden surface removal (with zbuffering)
        }
      } // end try
-     
-    
+
+
     catch(e) {
       console.log(e);
     } // end catch
- 
+
 } // end setupWebGL
 
 // read models in, load them into webgl buffers
 function loadModels() {
-    
-    
+
+
     inputTriangles = getJSONFile(INPUT_TRIANGLES_URL,"triangles"); // read in the triangle data
 
     try {
@@ -318,17 +318,17 @@ function loadModels() {
             var triToAdd; // tri indices to add to the index array
             var maxCorner = vec3.fromValues(Number.MIN_VALUE,Number.MIN_VALUE,Number.MIN_VALUE); // bbox corner
             var minCorner = vec3.fromValues(Number.MAX_VALUE,Number.MAX_VALUE,Number.MAX_VALUE); // other corner
-        
+
             // process each triangle set to load webgl vertex and triangle buffers
             numTriangleSets = inputTriangles.length; // remember how many tri sets
             for (var whichSet=0; whichSet<numTriangleSets; whichSet++) { // for each tri set
-                
+
                 // set up hilighting, modeling translation and rotation
                 inputTriangles[whichSet].center = vec3.fromValues(0,0,0);  // center point of tri set
                 inputTriangles[whichSet].on = false; // not highlighted
                 inputTriangles[whichSet].translation = vec3.fromValues(0,0,0); // no translation
                 inputTriangles[whichSet].xAxis = vec3.fromValues(1,0,0); // model X axis
-                inputTriangles[whichSet].yAxis = vec3.fromValues(0,1,0); // model Y axis 
+                inputTriangles[whichSet].yAxis = vec3.fromValues(0,1,0); // model Y axis
 
                 // set up the vertex and normal arrays, define model center and axes
                 inputTriangles[whichSet].glVertices = []; // flat coord list for webgl
@@ -352,7 +352,7 @@ function loadModels() {
                 normalBuffers[whichSet] = gl.createBuffer(); // init empty webgl set normal component buffer
                 gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffers[whichSet]); // activate that buffer
                 gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(inputTriangles[whichSet].glNormals),gl.STATIC_DRAW); // data in
-            
+
                 // set up the triangle index array, adjusting indices across sets
                 inputTriangles[whichSet].glTriangles = []; // flat index list for webgl
                 triSetSizes[whichSet] = inputTriangles[whichSet].triangles.length; // number of tris in this set
@@ -366,12 +366,12 @@ function loadModels() {
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, triangleBuffers[whichSet]); // activate that buffer
                 gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(inputTriangles[whichSet].glTriangles),gl.STATIC_DRAW); // data in
 
-            } // end for each triangle set 
+            } // end for each triangle set
         	var temp = vec3.create();
         	viewDelta = vec3.length(vec3.subtract(temp,maxCorner,minCorner)) / 100; // set global
         } // end if triangle file loaded
-    } // end try 
-    
+    } // end try
+
     catch(e) {
         console.log(e);
     } // end catch
@@ -379,20 +379,20 @@ function loadModels() {
 
 // setup the webGL shaders
 function setupShaders() {
-    
+
     // define vertex shader in essl using es6 template strings
     var vShaderCode = `
         attribute vec3 aVertexPosition; // vertex position
         attribute vec3 aVertexNormal; // vertex normal
-        
+
         uniform mat4 umMatrix; // the model matrix
         uniform mat4 upvmMatrix; // the project view model matrix
-        
+
         varying vec3 vWorldPos; // interpolated world position of vertex
         varying vec3 vVertexNormal; // interpolated normal for frag shader
 
         void main(void) {
-            
+
             // vertex position
             vec4 vWorldPos4 = umMatrix * vec4(aVertexPosition, 1.0);
             vWorldPos = vec3(vWorldPos4.x,vWorldPos4.y,vWorldPos4.z);
@@ -400,23 +400,23 @@ function setupShaders() {
 
             // vertex normal (assume no non-uniform scale)
             vec4 vWorldNormal4 = umMatrix * vec4(aVertexNormal, 0.0);
-            vVertexNormal = normalize(vec3(vWorldNormal4.x,vWorldNormal4.y,vWorldNormal4.z)); 
+            vVertexNormal = normalize(vec3(vWorldNormal4.x,vWorldNormal4.y,vWorldNormal4.z));
         }
     `;
-    
+
     // define fragment shader in essl using es6 template strings
     var fShaderCode = `
         precision mediump float; // set float to medium precision
 
         // eye location
         uniform vec3 uEyePosition; // the eye's position in world
-        
+
         // light properties
         uniform vec3 uLightAmbient; // the light's ambient color
         uniform vec3 uLightDiffuse; // the light's diffuse color
         uniform vec3 uLightSpecular; // the light's specular color
         uniform vec3 uLightPosition; // the light's position
-        
+
         // material properties
         uniform vec3 uAmbient; // the ambient reflectivity
         uniform vec3 uDiffuse; // the diffuse reflectivity
@@ -426,18 +426,18 @@ function setupShaders() {
         // geometry properties
         varying vec3 vWorldPos; // world xyz of fragment
         varying vec3 vVertexNormal; // normal of fragment
-            
+
         void main(void) {
-        
+
             // ambient term
-            vec3 ambient = uAmbient*uLightAmbient; 
-            
+            vec3 ambient = uAmbient*uLightAmbient;
+
             // diffuse term
-            vec3 normal = normalize(vVertexNormal); 
+            vec3 normal = normalize(vVertexNormal);
             vec3 light = normalize(uLightPosition - vWorldPos);
             float lambert = max(0.0,dot(normal,light));
             vec3 diffuse = uDiffuse*uLightDiffuse*lambert; // diffuse term
-            
+
             // specular term
             vec3 eye = normalize(uEyePosition - vWorldPos);
             vec3 halfVec = normalize(light+eye);
@@ -446,17 +446,17 @@ function setupShaders() {
             float highlight = 0.0;
             if(Blinn_Phong)
            	 	highlight = pow(max(0.0,dot(normal,halfVec)),uShininess);
-           	else 
+           	else
            		highlight = pow(max(0.0,dot(normal,reflectVec)),uShininess);
 
             vec3 specular = uSpecular*uLightSpecular*highlight; // specular term
-            
+
             // combine to output color
             vec3 colorOut = ambient + diffuse + specular; // no specular yet
-            gl_FragColor = vec4(colorOut, 1.0); 
+            gl_FragColor = vec4(colorOut, 1.0);
         }
     `;
-    
+
     try {
         var fShader = gl.createShader(gl.FRAGMENT_SHADER); // create frag shader
         gl.shaderSource(fShader,fShaderCode); // attach code to shader
@@ -465,12 +465,12 @@ function setupShaders() {
         var vShader = gl.createShader(gl.VERTEX_SHADER); // create vertex shader
         gl.shaderSource(vShader,vShaderCode); // attach code to shader
         gl.compileShader(vShader); // compile the code for gpu execution
-            
+
         if (!gl.getShaderParameter(fShader, gl.COMPILE_STATUS)) { // bad frag shader compile
-            throw "error during fragment shader compile: " + gl.getShaderInfoLog(fShader);  
+            throw "error during fragment shader compile: " + gl.getShaderInfoLog(fShader);
             gl.deleteShader(fShader);
         } else if (!gl.getShaderParameter(vShader, gl.COMPILE_STATUS)) { // bad vertex shader compile
-            throw "error during vertex shader compile: " + gl.getShaderInfoLog(vShader);  
+            throw "error during vertex shader compile: " + gl.getShaderInfoLog(vShader);
             gl.deleteShader(vShader);
         } else { // no compile errors
             var shaderProgram = gl.createProgram(); // create the single shader program
@@ -482,17 +482,17 @@ function setupShaders() {
                 throw "error during shader program linking: " + gl.getProgramInfoLog(shaderProgram);
             } else { // no shader program link errors
                 gl.useProgram(shaderProgram); // activate shader program (frag and vert)
-                
+
                 // locate and enable vertex attributes
                 vPosAttribLoc = gl.getAttribLocation(shaderProgram, "aVertexPosition"); // ptr to vertex pos attrib
                 gl.enableVertexAttribArray(vPosAttribLoc); // connect attrib to array
                 vNormAttribLoc = gl.getAttribLocation(shaderProgram, "aVertexNormal"); // ptr to vertex normal attrib
                 gl.enableVertexAttribArray(vNormAttribLoc); // connect attrib to array
-                
+
                 // locate vertex uniforms
                 mMatrixULoc = gl.getUniformLocation(shaderProgram, "umMatrix"); // ptr to mmat
                 pvmMatrixULoc = gl.getUniformLocation(shaderProgram, "upvmMatrix"); // ptr to pvmmat
-                
+
                 // locate fragment uniforms
                 var eyePositionULoc = gl.getUniformLocation(shaderProgram, "uEyePosition"); // ptr to eye position
                 var lightAmbientULoc = gl.getUniformLocation(shaderProgram, "uLightAmbient"); // ptr to light ambient
@@ -512,8 +512,8 @@ function setupShaders() {
                 gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position
             } // end if no shader program link errors
         } // end if no compile errors
-    } // end try 
-    
+    } // end try
+
     catch(e) {
         console.log(e);
     } // end catch
@@ -521,18 +521,18 @@ function setupShaders() {
 
 // render the loaded model
 function renderModels() {
-    
+
     // construct the model transform matrix, based on model state
     function makeModelTransform(currModel) {
         var zAxis = vec3.create(), sumRotation = mat4.create(), temp = mat4.create(), negCtr = vec3.create();
 
         // move the model to the origin
-        mat4.fromTranslation(mMatrix,vec3.negate(negCtr,currModel.center)); 
-        
+        mat4.fromTranslation(mMatrix,vec3.negate(negCtr,currModel.center));
+
         // scale for highlighting if needed
         if (currModel.on)
             mat4.multiply(mMatrix,mat4.fromScaling(temp,vec3.fromValues(1.2,1.2,1.2)),mMatrix); // S(1.2) * T(-ctr)
-        
+
         // rotate the model to current interactive orientation
         vec3.normalize(zAxis,vec3.cross(zAxis,currModel.xAxis,currModel.yAxis)); // get the new model z axis
         mat4.set(sumRotation, // get the composite rotation
@@ -541,26 +541,26 @@ function renderModels() {
             currModel.xAxis[2], currModel.yAxis[2], zAxis[2], 0,
             0, 0,  0, 1);
         mat4.multiply(mMatrix,sumRotation,mMatrix); // R(ax) * S(1.2) * T(-ctr)
-        
+
         // translate back to model center
         mat4.multiply(mMatrix,mat4.fromTranslation(temp,currModel.center),mMatrix); // T(ctr) * R(ax) * S(1.2) * T(-ctr)
 
         // translate model to current interactive orientation
         mat4.multiply(mMatrix,mat4.fromTranslation(temp,currModel.translation),mMatrix); // T(pos)*T(ctr)*R(ax)*S(1.2)*T(-ctr)
-        
+
     } // end make model transform
-    
+
     // var hMatrix = mat4.create(); // handedness matrix
     var pMatrix = mat4.create(); // projection matrix
     var vMatrix = mat4.create(); // view matrix
     var mMatrix = mat4.create(); // model matrix
     var pvMatrix = mat4.create(); // hand * proj * view matrices
     var pvmMatrix = mat4.create(); // hand * proj * view * model matrices
-    
+
     window.requestAnimationFrame(renderModels); // set up frame render callback
-    
+
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // clear frame/depth buffers
-    
+
     // set up projection and view
     // mat4.fromScaling(hMatrix,vec3.fromValues(-1,1,1)); // create handedness matrix
     mat4.perspective(pMatrix,0.5*Math.PI,1,0.1,10); // create projection matrix
@@ -572,13 +572,13 @@ function renderModels() {
     var currSet; // the tri set and its material properties
     for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
         currSet = inputTriangles[whichTriSet];
-        
+
         // make model transform, add to view project
         makeModelTransform(currSet);
         mat4.multiply(pvmMatrix,pvMatrix,mMatrix); // project * view * model
         gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
         gl.uniformMatrix4fv(pvmMatrixULoc, false, pvmMatrix); // pass in the hpvm matrix
-        
+
         // reflectivity: feed to the fragment shader
         gl.uniform3fv(ambientULoc,currSet.material.ambient); // pass in the ambient reflectivity
         gl.uniform3fv(diffuseULoc,currSet.material.diffuse); // pass in the diffuse reflectivity
@@ -594,7 +594,7 @@ function renderModels() {
         // triangle buffer: activate and render
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,triangleBuffers[whichTriSet]); // activate
         gl.drawElements(gl.TRIANGLES,3*triSetSizes[whichTriSet],gl.UNSIGNED_SHORT,0); // render
-        
+
     } // end for each triangle set
 } // end render model
 
@@ -602,10 +602,10 @@ function renderModels() {
 /* MAIN -- HERE is where execution begins after window load */
 
 function main() {
-  
+
   setupWebGL(); // set up the webGL environment
   loadModels(); // load in the models from tri file
   setupShaders(); // setup the webGL shaders
   renderModels(); // draw the triangles using webGL
-  
+
 } // end main
