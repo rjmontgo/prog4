@@ -675,7 +675,7 @@ function renderModels() {
 
     // copy above forloop and ensure that alpha is less than 1.0
     // set depth buffering off
-    //gl.depthMask(false);
+    gl.depthMask(false);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
