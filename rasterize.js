@@ -628,6 +628,7 @@ function renderModels() {
     mat4.multiply(pvMatrix,pvMatrix,pMatrix); // projection
     mat4.multiply(pvMatrix,pvMatrix,vMatrix); // projection * view
 
+    var unRenderedTriangleIdxs = Array.from(Array(numTriangleSets), (x, index) => index);
     // render each triangle set
     var currSet; // the tri set and its material properties
     for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
@@ -637,6 +638,8 @@ function renderModels() {
         if (inputTriangles[whichTriSet].material.alpha < 1.0 ) {
           continue;
         }
+        unRenderedTriangleIdxs.splice(whichTriSet, 1); // remove this from the list of rendered triangles
+
 
         // make model transform, add to view project
         makeModelTransform(currSet);
@@ -673,12 +676,84 @@ function renderModels() {
 
     } // end for each triangle set
 
-    // copy above forloop and ensure that alpha is less than 1.0
-    // set depth buffering off
-    gl.depthMask(false);
+
+    /**
+      We have the indices of unrendered sets of triangles
+        - We organize by triangle set and then individual triangle
+          - unRenderedTriangleIdxs is the set. Then inputTriangles[]
+
+      - have a list of [[triset, tri], [triset2, tri2]]
+      1. Loop through each tri set
+      2. Get the transformed vertices of each tri set
+      3. for each individual triangle in the input set.
+        - insert in sorted order in the list based on the maximum z vertex of the triangle.
+
+      4. To render you will need to call draw elements for each item in the list.
+         and render drawElements(gl.TRIANGLES, 3*triSetSizes[whichTriSet], gl.UNSIGNED_SHORT, tri*3)
+
+    */
+    var renderList = [];
+    for (var each = 0; each < unRenderedTriangleIdxs.length; each++) {
+      var idx = unRenderedTriangleIdxs[each];
+      currSet = inputTriangles[idx];
+
+      makeModelTransform(currSet);
+      mat4.multiply(pvmMatrix,pvMatrix,mMatrix);
+      var numTri = inputTriangles[idx].triangles.length;
+      for (var whichTriIdx = 0; whichTriIdx < numTri; whichTriIdx++) {
+        var triIdx0 = currSet.triangles[whichTriIdx][0];
+        var triIdx1 = currSet.triangles[whichTriIdx][1];
+        var triIdx2 = currSet.triangles[whichTriIdx][2];
+
+        var triV0Arr = currSet.vertices[triIdx0];
+        var triV1Arr = currSet.vertices[triIdx1];
+        var triV2Arr = currSet.vertices[triIdx2];
+
+        var v0 = vec4.fromValues(triV0Arr[0], triV0Arr[1], triV0Arr[2], 1);
+        var v1 = vec4.fromValues(triV1Arr[0], triV1Arr[1], triV1Arr[2], 1);
+        var v2 = vec4.fromValues(triV2Arr[0], triV2Arr[1], triV2Arr[2], 1);
+        //console.log("Set: " + idx + "\nTriSet: " + whichTriIdx + "\nv0z: " + v0[2] +
+        //            "\nv1z: " + v1[2] + "\nv2z: " + v2[2]);
+
+        var transformedV0 = vec4.create();
+        var transformedV1 = vec4.create();
+        var transformedV2 = vec4.create();
+        vec4.transformMat4(transformedV0, v0, pvmMatrix);
+        vec4.transformMat4(transformedV1, v1, pvmMatrix);
+        vec4.transformMat4(transformedV2, v2, pvmMatrix);
+        vec4.scale(transformedV0, transformedV0, 1/transformedV0[3]);
+        vec4.scale(transformedV1, transformedV1, 1/transformedV1[3]);
+        vec4.scale(transformedV2, transformedV2, 1/transformedV2[3]);
+
+        var maxZ = Math.max(transformedV0[2], transformedV1[2], transformedV2[2]);
+        //console.log("Set: " + idx + "\nTriSet: " + whichTriIdx + "\nmaxZ: " + maxZ);
+
+        if (!renderList.length) {
+          renderList.push([idx, whichTriIdx, maxZ]);
+        } else {
+          var set = false;
+          for (var iter = 0; iter < renderList.length; iter++) {
+            if (renderList[iter][2] < maxZ) {
+              renderList.splice(iter, 0, [idx, whichTriIdx, maxZ]);
+              set = true;
+              break;
+            }
+          }
+          if (!set) {
+            renderList.push([idx, whichTriIdx, maxZ]);
+          }
+        }
+
+      }
+
+    }
+
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
+
+    for (var item=0; item<renderList.length; item++) {
+        var whichTriSet = renderList[item][0];
+        var whichTri = renderList[item][1];
 
         currSet = inputTriangles[whichTriSet];
         // check if alpha is 1.0 then continue
@@ -716,7 +791,7 @@ function renderModels() {
 
         // triangle buffer: activate and render
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,triangleBuffers[whichTriSet]); // activate
-        gl.drawElements(gl.TRIANGLES,3*triSetSizes[whichTriSet],gl.UNSIGNED_SHORT,0); // render
+        gl.drawElements(gl.TRIANGLES,3,gl.UNSIGNED_SHORT,3*2*whichTri); // render
 
     }
 } // end render model
