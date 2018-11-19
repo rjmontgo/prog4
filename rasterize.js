@@ -19,9 +19,12 @@ var inputEllipsoids = []; // the ellipsoid data as loaded from input files
 var numEllipsoids = 0; // how many ellipsoids in the input scene
 var vertexBuffers = []; // this contains vertex coordinate lists by set, in triples
 var normalBuffers = []; // this contains normal component lists by set, in triples
+var textureBuffers = []; // this contains the texture coordinate lists by set, in doubles
 var triSetSizes = []; // this contains the size of each triangle set
 var triangleBuffers = []; // lists of indices into vertexBuffers by set, in triples
 var viewDelta = 0; // how much to displace view with each key press
+var textureArrays = []; // hold the textured images
+var imageArrays = [];
 
 /* shader parameter locations */
 var vPosAttribLoc; // where to put position for vertex shader
@@ -36,6 +39,7 @@ var Blinn_PhongULoc;
 var Eye = vec3.clone(defaultEye); // eye position in world space
 var Center = vec3.clone(defaultCenter); // view direction in world space
 var Up = vec3.clone(defaultUp); // view up vector in world space
+var globalimage = [];
 
 // ASSIGNMENT HELPER FUNCTIONS
 
@@ -333,12 +337,15 @@ function loadModels() {
                 // set up the vertex and normal arrays, define model center and axes
                 inputTriangles[whichSet].glVertices = []; // flat coord list for webgl
                 inputTriangles[whichSet].glNormals = []; // flat normal list for webgl
+                inputTriangles[whichSet].gltextureCoords = [];
                 var numVerts = inputTriangles[whichSet].vertices.length; // num vertices in tri set
                 for (whichSetVert=0; whichSetVert<numVerts; whichSetVert++) { // verts in set
                     vtxToAdd = inputTriangles[whichSet].vertices[whichSetVert]; // get vertex to add
                     normToAdd = inputTriangles[whichSet].normals[whichSetVert]; // get normal to add
+                    texCoordToAdd = inputTriangles[whichSet].uvs[whichSetVert]; // get uvs to add
                     inputTriangles[whichSet].glVertices.push(vtxToAdd[0],vtxToAdd[1],vtxToAdd[2]); // put coords in set coord list
                     inputTriangles[whichSet].glNormals.push(normToAdd[0],normToAdd[1],normToAdd[2]); // put normal in set coord list
+                    inputTriangles[whichSet].gltextureCoords.push(texCoordToAdd[0], texCoordToAdd[1]);
                     vec3.max(maxCorner,maxCorner,vtxToAdd); // update world bounding box corner maxima
                     vec3.min(minCorner,minCorner,vtxToAdd); // update world bounding box corner minima
                     vec3.add(inputTriangles[whichSet].center,inputTriangles[whichSet].center,vtxToAdd); // add to ctr sum
@@ -352,6 +359,26 @@ function loadModels() {
                 normalBuffers[whichSet] = gl.createBuffer(); // init empty webgl set normal component buffer
                 gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffers[whichSet]); // activate that buffer
                 gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(inputTriangles[whichSet].glNormals),gl.STATIC_DRAW); // data in
+                textureBuffers[whichSet] = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER,textureBuffers[whichSet]);
+                gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(inputTriangles[whichSet].gltextureCoords),gl.STATIC_DRAW); // data in
+
+                // create the original texture
+                textureArrays[whichSet] = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, textureArrays[whichSet]);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+                              new Uint8Array([0,0,255,255]));
+
+
+                imageArrays[whichSet] = new Image();
+                imageArrays[whichSet].idx = whichSet;
+                imageArrays[whichSet].onload = function() {
+                  gl.bindTexture(gl.TEXTURE_2D, textureArrays[this.idx]);
+                  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this);
+                  gl.generateMipmap(gl.TEXTURE_2D);
+                }
+                imageArrays[whichSet].crossOrigin = "Anonymous";
+                imageArrays[whichSet].src = "https://ncsucgclass.github.io/prog4/" + inputTriangles[whichSet].material.texture;
 
                 // set up the triangle index array, adjusting indices across sets
                 inputTriangles[whichSet].glTriangles = []; // flat index list for webgl
@@ -384,12 +411,14 @@ function setupShaders() {
     var vShaderCode = `
         attribute vec3 aVertexPosition; // vertex position
         attribute vec3 aVertexNormal; // vertex normal
+        attribute vec2 aTexCoord; // texture coord
 
         uniform mat4 umMatrix; // the model matrix
         uniform mat4 upvmMatrix; // the project view model matrix
 
         varying vec3 vWorldPos; // interpolated world position of vertex
         varying vec3 vVertexNormal; // interpolated normal for frag shader
+        varying vec2 vTexCoord; // texture coord passed to the frag shader
 
         void main(void) {
 
@@ -401,6 +430,8 @@ function setupShaders() {
             // vertex normal (assume no non-uniform scale)
             vec4 vWorldNormal4 = umMatrix * vec4(aVertexNormal, 0.0);
             vVertexNormal = normalize(vec3(vWorldNormal4.x,vWorldNormal4.y,vWorldNormal4.z));
+
+            vTexCoord = aTexCoord;
         }
     `;
 
@@ -426,6 +457,11 @@ function setupShaders() {
         // geometry properties
         varying vec3 vWorldPos; // world xyz of fragment
         varying vec3 vVertexNormal; // normal of fragment
+
+        // texture properties
+        varying vec2 vTexCoord;
+
+        uniform sampler2D uSampler;
 
         void main(void) {
 
@@ -453,7 +489,9 @@ function setupShaders() {
 
             // combine to output color
             vec3 colorOut = ambient + diffuse + specular; // no specular yet
-            gl_FragColor = vec4(colorOut, 1.0);
+
+            // render texture component
+            gl_FragColor = texture2D(uSampler, vTexCoord);
         }
     `;
 
@@ -488,6 +526,8 @@ function setupShaders() {
                 gl.enableVertexAttribArray(vPosAttribLoc); // connect attrib to array
                 vNormAttribLoc = gl.getAttribLocation(shaderProgram, "aVertexNormal"); // ptr to vertex normal attrib
                 gl.enableVertexAttribArray(vNormAttribLoc); // connect attrib to array
+                vTexCoordAttribLoc = gl.getAttribLocation(shaderProgram, "aTexCoord");
+                gl.enableVertexAttribArray(vTexCoordAttribLoc);
 
                 // locate vertex uniforms
                 mMatrixULoc = gl.getUniformLocation(shaderProgram, "umMatrix"); // ptr to mmat
@@ -585,11 +625,18 @@ function renderModels() {
         gl.uniform3fv(specularULoc,currSet.material.specular); // pass in the specular reflectivity
         gl.uniform1f(shininessULoc,currSet.material.n); // pass in the specular exponent
         gl.uniform1i(Blinn_PhongULoc, Blinn_Phong);
+
         // vertex buffer: activate and feed into vertex shader
         gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffers[whichTriSet]); // activate
         gl.vertexAttribPointer(vPosAttribLoc,3,gl.FLOAT,false,0,0); // feed
         gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffers[whichTriSet]); // activate
         gl.vertexAttribPointer(vNormAttribLoc,3,gl.FLOAT,false,0,0); // feed
+        gl.bindBuffer(gl.ARRAY_BUFFER,textureBuffers[whichTriSet]);
+        gl.vertexAttribPointer(vTexCoordAttribLoc,2,gl.FLOAT,false,0,0);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, textureArrays[whichTriSet]);
+
 
         // triangle buffer: activate and render
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,triangleBuffers[whichTriSet]); // activate
