@@ -11,6 +11,7 @@ var lightSpecular = vec3.fromValues(1,1,1); // default light specular emission
 var lightPosition = vec3.fromValues(-1,3,-0.5); // default light position
 var rotateTheta = Math.PI/50; // how much to rotate models by with each key press
 var Blinn_Phong = true;
+var modulate = true;
 /* webgl and geometry data */
 var gl = null; // the all powerful gl object. It's all here folks!
 var inputTriangles = []; // the triangle data as loaded from input files
@@ -34,7 +35,9 @@ var ambientULoc; // where to put ambient reflecivity for fragment shader
 var diffuseULoc; // where to put diffuse reflecivity for fragment shader
 var specularULoc; // where to put specular reflecivity for fragment shader
 var shininessULoc; // where to put specular exponent for fragment shader
+var alphaULoc;
 var Blinn_PhongULoc;
+var modulateULoc;
 /* interaction variables */
 var Eye = vec3.clone(defaultEye); // eye position in world space
 var Center = vec3.clone(defaultCenter); // view direction in world space
@@ -219,6 +222,9 @@ function handleKeyDown(event) {
         case "KeyB":
         		Blinn_Phong = !Blinn_Phong;
         	break;
+        case "KeyX":
+            modulate = !modulate;
+          break;
         case "KeyN":
         		handleKeyDown.modelOn.material.n = (handleKeyDown.modelOn.material.n + 1)%20;
         		console.log(handleKeyDown.modelOn.material.n);
@@ -453,7 +459,9 @@ function setupShaders() {
         uniform vec3 uDiffuse; // the diffuse reflectivity
         uniform vec3 uSpecular; // the specular reflectivity
         uniform float uShininess; // the specular exponent
+        uniform float alpha; // the alpha component
         uniform bool Blinn_Phong;  // Blinn_Phong x Phong toggle
+        uniform bool modulate; // modulate x replace toggle
         // geometry properties
         varying vec3 vWorldPos; // world xyz of fragment
         varying vec3 vVertexNormal; // normal of fragment
@@ -488,10 +496,20 @@ function setupShaders() {
             vec3 specular = uSpecular*uLightSpecular*highlight; // specular term
 
             // combine to output color
-            vec3 colorOut = ambient + diffuse + specular; // no specular yet
+            vec3 color = ambient + diffuse + specular; // no specular yet
 
             // render texture component
-            gl_FragColor = texture2D(uSampler, vTexCoord);
+            vec4 colorOut = vec4(color, 1);
+            vec4 textureOut = texture2D(uSampler, vTexCoord);
+            // first determine if we modulate
+            if (modulate) { // modulate color and alpha
+              colorOut = textureOut * colorOut;
+              colorOut.w = textureOut.w * alpha;
+            } else { // replace
+              colorOut = textureOut;
+            }
+
+            gl_FragColor = colorOut;
         }
     `;
 
@@ -544,6 +562,8 @@ function setupShaders() {
                 specularULoc = gl.getUniformLocation(shaderProgram, "uSpecular"); // ptr to specular
                 shininessULoc = gl.getUniformLocation(shaderProgram, "uShininess"); // ptr to shininess
                 Blinn_PhongULoc = gl.getUniformLocation(shaderProgram, "Blinn_Phong");
+                modulateULoc = gl.getUniformLocation(shaderProgram, "modulate");
+                alphaULoc = gl.getUniformLocation(shaderProgram, "alpha");
                 // pass global constants into fragment uniforms
                 gl.uniform3fv(eyePositionULoc,Eye); // pass in the eye's position
                 gl.uniform3fv(lightAmbientULoc,lightAmbient); // pass in the light's ambient emission
@@ -611,7 +631,12 @@ function renderModels() {
     // render each triangle set
     var currSet; // the tri set and its material properties
     for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
+
         currSet = inputTriangles[whichTriSet];
+        // check if alpha is 1.0 then continue
+        if (inputTriangles[whichTriSet].material.alpha < 1.0 ) {
+          continue;
+        }
 
         // make model transform, add to view project
         makeModelTransform(currSet);
@@ -624,7 +649,11 @@ function renderModels() {
         gl.uniform3fv(diffuseULoc,currSet.material.diffuse); // pass in the diffuse reflectivity
         gl.uniform3fv(specularULoc,currSet.material.specular); // pass in the specular reflectivity
         gl.uniform1f(shininessULoc,currSet.material.n); // pass in the specular exponent
+        gl.uniform1f(alphaULoc,currSet.material.alpha);
+
         gl.uniform1i(Blinn_PhongULoc, Blinn_Phong);
+        gl.uniform1i(modulateULoc, modulate);
+
 
         // vertex buffer: activate and feed into vertex shader
         gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffers[whichTriSet]); // activate
@@ -643,6 +672,53 @@ function renderModels() {
         gl.drawElements(gl.TRIANGLES,3*triSetSizes[whichTriSet],gl.UNSIGNED_SHORT,0); // render
 
     } // end for each triangle set
+
+    // copy above forloop and ensure that alpha is less than 1.0
+    // set depth buffering off
+    //gl.depthMask(false);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
+
+        currSet = inputTriangles[whichTriSet];
+        // check if alpha is 1.0 then continue
+        if (inputTriangles[whichTriSet].material.alpha == 1.0 ) {
+          continue;
+        }
+
+        // make model transform, add to view project
+        makeModelTransform(currSet);
+        mat4.multiply(pvmMatrix,pvMatrix,mMatrix); // project * view * model
+        gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
+        gl.uniformMatrix4fv(pvmMatrixULoc, false, pvmMatrix); // pass in the hpvm matrix
+
+        // reflectivity: feed to the fragment shader
+        gl.uniform3fv(ambientULoc,currSet.material.ambient); // pass in the ambient reflectivity
+        gl.uniform3fv(diffuseULoc,currSet.material.diffuse); // pass in the diffuse reflectivity
+        gl.uniform3fv(specularULoc,currSet.material.specular); // pass in the specular reflectivity
+        gl.uniform1f(shininessULoc,currSet.material.n); // pass in the specular exponent
+        gl.uniform1f(alphaULoc,currSet.material.alpha);
+
+        gl.uniform1i(Blinn_PhongULoc, Blinn_Phong);
+        gl.uniform1i(modulateULoc, modulate);
+
+
+        // vertex buffer: activate and feed into vertex shader
+        gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffers[whichTriSet]); // activate
+        gl.vertexAttribPointer(vPosAttribLoc,3,gl.FLOAT,false,0,0); // feed
+        gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffers[whichTriSet]); // activate
+        gl.vertexAttribPointer(vNormAttribLoc,3,gl.FLOAT,false,0,0); // feed
+        gl.bindBuffer(gl.ARRAY_BUFFER,textureBuffers[whichTriSet]);
+        gl.vertexAttribPointer(vTexCoordAttribLoc,2,gl.FLOAT,false,0,0);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, textureArrays[whichTriSet]);
+
+        // triangle buffer: activate and render
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,triangleBuffers[whichTriSet]); // activate
+        gl.drawElements(gl.TRIANGLES,3*triSetSizes[whichTriSet],gl.UNSIGNED_SHORT,0); // render
+
+    }
 } // end render model
 
 
