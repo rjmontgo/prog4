@@ -650,6 +650,7 @@ function renderModels() {
 
     var unRenderedTriangleIdxs = Array.from(Array(numTriangleSets), (x, index) => index);
     // render each triangle set
+    gl.depthMask(true); // enable the depth mask here since it will get unset in the animation frames
     var currSet; // the tri set and its material properties
     for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
 
@@ -769,7 +770,7 @@ function renderModels() {
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
+    gl.depthMask(false); //disable depth mask here and render the transparent objects
     for (var item=0; item<renderList.length; item++) {
         var whichTriSet = renderList[item][0];
         var whichTri = renderList[item][1];
