@@ -10,7 +10,6 @@ var lightDiffuse = vec3.fromValues(1,1,1); // default light diffuse emission
 var lightSpecular = vec3.fromValues(1,1,1); // default light specular emission
 var lightPosition = vec3.fromValues(-1,3,-0.5); // default light position
 var rotateTheta = Math.PI/50; // how much to rotate models by with each key press
-var Blinn_Phong = true;
 var modulate = true;
 /* webgl and geometry data */
 var gl = null; // the all powerful gl object. It's all here folks!
@@ -36,7 +35,6 @@ var diffuseULoc; // where to put diffuse reflecivity for fragment shader
 var specularULoc; // where to put specular reflecivity for fragment shader
 var shininessULoc; // where to put specular exponent for fragment shader
 var alphaULoc;
-var Blinn_PhongULoc;
 var modulateULoc;
 /* interaction variables */
 var Eye = vec3.clone(defaultEye); // eye position in world space
@@ -220,16 +218,23 @@ function handleKeyDown(event) {
                 translateModel(vec3.scale(temp,Up,-viewDelta));
             break;
         case "KeyB":
-        		Blinn_Phong = !Blinn_Phong;
-        	break;
-        case "KeyX":
             modulate = !modulate;
-          break;
+        	break;
         case "KeyN":
         		handleKeyDown.modelOn.material.n = (handleKeyDown.modelOn.material.n + 1)%20;
         		console.log(handleKeyDown.modelOn.material.n);
         	break;
         case "Numpad1":
+        		vec3.add(handleKeyDown.modelOn.material.ambient, handleKeyDown.modelOn.material.ambient, vec3.fromValues(0.1,0.1,0.1));
+        		if(handleKeyDown.modelOn.material.ambient[0] > 1.0)
+        			handleKeyDown.modelOn.material.ambient[0] = 0;
+        		if(handleKeyDown.modelOn.material.ambient[1] > 1.0)
+        			handleKeyDown.modelOn.material.ambient[1] = 0;
+        		if(handleKeyDown.modelOn.material.ambient[2] > 1.0)
+        			handleKeyDown.modelOn.material.ambient[2] = 0;
+        		console.log(handleKeyDown.modelOn.material.ambient);
+        	break;
+        case "Digit1":
         		vec3.add(handleKeyDown.modelOn.material.ambient, handleKeyDown.modelOn.material.ambient, vec3.fromValues(0.1,0.1,0.1));
         		if(handleKeyDown.modelOn.material.ambient[0] > 1.0)
         			handleKeyDown.modelOn.material.ambient[0] = 0;
@@ -249,6 +254,16 @@ function handleKeyDown(event) {
         			handleKeyDown.modelOn.material.diffuse[2] = 0;
         		console.log(handleKeyDown.modelOn.material.diffuse);
         	break;
+        case "Digit2":
+        		vec3.add(handleKeyDown.modelOn.material.diffuse, handleKeyDown.modelOn.material.diffuse, vec3.fromValues(0.1,0.1,0.1));
+        		if(handleKeyDown.modelOn.material.diffuse[0] > 1.0)
+        			handleKeyDown.modelOn.material.diffuse[0] = 0;
+        		if(handleKeyDown.modelOn.material.diffuse[1] > 1.0)
+        			handleKeyDown.modelOn.material.diffuse[1] = 0;
+        		if(handleKeyDown.modelOn.material.diffuse[2] > 1.0)
+        			handleKeyDown.modelOn.material.diffuse[2] = 0;
+        		console.log(handleKeyDown.modelOn.material.diffuse);
+        	break;
          case "Numpad3":
         		vec3.add(handleKeyDown.modelOn.material.specular, handleKeyDown.modelOn.material.specular, vec3.fromValues(0.1,0.1,0.1));
         		if(handleKeyDown.modelOn.material.specular[0] > 1.0)
@@ -259,6 +274,16 @@ function handleKeyDown(event) {
         			handleKeyDown.modelOn.material.specular[2] = 0;
         		console.log(handleKeyDown.modelOn.material.specular);
         	break;
+          case "Digit3":
+             vec3.add(handleKeyDown.modelOn.material.specular, handleKeyDown.modelOn.material.specular, vec3.fromValues(0.1,0.1,0.1));
+             if(handleKeyDown.modelOn.material.specular[0] > 1.0)
+               handleKeyDown.modelOn.material.specular[0] = 0;
+             if(handleKeyDown.modelOn.material.specular[1] > 1.0)
+               handleKeyDown.modelOn.material.specular[1] = 0;
+             if(handleKeyDown.modelOn.material.specular[2] > 1.0)
+               handleKeyDown.modelOn.material.specular[2] = 0;
+             console.log(handleKeyDown.modelOn.material.specular);
+           break;
         case "Backspace": // reset model transforms to default
             for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
                 vec3.set(inputTriangles[whichTriSet].translation,0,0,0);
@@ -460,7 +485,6 @@ function setupShaders() {
         uniform vec3 uSpecular; // the specular reflectivity
         uniform float uShininess; // the specular exponent
         uniform float alpha; // the alpha component
-        uniform bool Blinn_Phong;  // Blinn_Phong x Phong toggle
         uniform bool modulate; // modulate x replace toggle
         // geometry properties
         varying vec3 vWorldPos; // world xyz of fragment
@@ -488,11 +512,8 @@ function setupShaders() {
             float ndotLight = 2.0*dot(normal, light);
             vec3 reflectVec = normalize(ndotLight*normal - light);
             float highlight = 0.0;
-            if(Blinn_Phong)
-           	 	highlight = pow(max(0.0,dot(normal,halfVec)),uShininess);
-           	else
-           		highlight = pow(max(0.0,dot(normal,reflectVec)),uShininess);
 
+            highlight = pow(max(0.0,dot(normal,halfVec)),uShininess);
             vec3 specular = uSpecular*uLightSpecular*highlight; // specular term
 
             // combine to output color
@@ -561,7 +582,6 @@ function setupShaders() {
                 diffuseULoc = gl.getUniformLocation(shaderProgram, "uDiffuse"); // ptr to diffuse
                 specularULoc = gl.getUniformLocation(shaderProgram, "uSpecular"); // ptr to specular
                 shininessULoc = gl.getUniformLocation(shaderProgram, "uShininess"); // ptr to shininess
-                Blinn_PhongULoc = gl.getUniformLocation(shaderProgram, "Blinn_Phong");
                 modulateULoc = gl.getUniformLocation(shaderProgram, "modulate");
                 alphaULoc = gl.getUniformLocation(shaderProgram, "alpha");
                 // pass global constants into fragment uniforms
@@ -654,7 +674,6 @@ function renderModels() {
         gl.uniform1f(shininessULoc,currSet.material.n); // pass in the specular exponent
         gl.uniform1f(alphaULoc,currSet.material.alpha);
 
-        gl.uniform1i(Blinn_PhongULoc, Blinn_Phong);
         gl.uniform1i(modulateULoc, modulate);
 
 
@@ -774,7 +793,6 @@ function renderModels() {
         gl.uniform1f(shininessULoc,currSet.material.n); // pass in the specular exponent
         gl.uniform1f(alphaULoc,currSet.material.alpha);
 
-        gl.uniform1i(Blinn_PhongULoc, Blinn_Phong);
         gl.uniform1i(modulateULoc, modulate);
 
 
